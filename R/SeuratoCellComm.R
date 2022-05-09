@@ -1,7 +1,17 @@
-as.SingleCellExperiment.Seurat <- function(x, assay = NULL, ...) {
-  CheckDots(...)
-  if (!PackageCheck('SingleCellExperiment', error = FALSE)) {
-    stop("Please install SingleCellExperiment from Bioconductor before converting to a SingeCellExperiment object")
+CreateCellRouter <- function(rawdata, assay.type='RNA', min.genes, min.cells,
+                             is.expr = 0){
+  assay.data <- CreateAssay(rawdata, assay.type, min.genes, min.cells, is.expr);
+  assay.list <- list(assay.data)
+  names(assay.list) <- assay.type
+  object <- new(Class = "CellRouter", assays = assay.list)
+  # object@sampTab <- assay.data@sampTab
+  return(object)
+}
+
+
+as.CellRouter.Seurat <- function(x, assay = NULL, ...) {
+  if (!PackageCheck('Seurat', error = FALSE)) {
+    stop("Please install Seurat  before converting to a CellRouter object")
   }
   assay <- assay %||% Assays(object = x)
   if (!all(assay %in% Assays(object = x))) {
@@ -10,55 +20,34 @@ as.SingleCellExperiment.Seurat <- function(x, assay = NULL, ...) {
   if (DefaultAssay(object = x) %in% assay) {
     assay <- union(DefaultAssay(object = x), assay)
   }
-  experiments <- list()
+  metadata <- x[[]]
+  metadata$celltypes <- Idents(object = x)
+  assay.list <- list()
   for (assayn in assay) {
-    assays <- list(
-      counts = GetAssayData(object = x, assay = assayn, slot = "counts"),
+    if (assayn == "Spatial") {
       logcounts = GetAssayData(object = x, assay = assayn, slot = "data")
-    )
-    scaledata_a <- GetAssayData(object = x, assay = assayn, slot = "scale.data")
-    if (isTRUE(x = all.equal(
-      target = dim(x = assays[["counts"]]),
-      current = dim(x = scaledata_a))
-    )) {
-      assays[["scaledata"]] <- scaledata_a
+      assay.data <- CreateAssay(logcounts, "ST", min.genes, min.cells, is.expr)
+      assay.list <- c(assay.list, ST=assay.data)
     }
-    assays <- assays[sapply(X = assays, FUN = nrow) != 0]
-    sume <- SummarizedExperiment::SummarizedExperiment(assays = assays)
-    experiments[[assayn]] <- sume
-  }
-  # create one single cell experiment
-  sce <- as(object = experiments[[1]], Class = "SingleCellExperiment")
-  orig.exp.name <- names(x = experiments[1])
-  if (packageVersion(pkg = "SingleCellExperiment") >= "1.14.0") {
-    SingleCellExperiment::mainExpName(sce) <- names(x = experiments[1])
-  }
-  if (length(x = experiments) > 1) {
-    sce <- SingleCellExperiment::SingleCellExperiment(sce, altExps = experiments)
-    sce <- SingleCellExperiment::swapAltExp(
-      x = sce,
-      name = orig.exp.name,
-      saved = NULL
-    )
+    if (assayn == "RNA") {
+      logcounts = GetAssayData(object = x, assay = assayn, slot = "data")
+      assay.data <- CreateAssay(logcounts, "RNA", min.genes, min.cells, is.expr);
+      assay.list <- c(assay.list, RNA=assay.data)
+    }
+    cellrouterobject <- new(Class = "CellRouter", assays = assay.list)
   }
   metadata <- x[[]]
-  metadata$ident <- Idents(object = x)
-  SummarizedExperiment::colData(x = sce) <- S4Vectors::DataFrame(metadata)
-  for (assayn in assay) {
-    if (assayn != orig.exp.name) {
-      sce <- SingleCellExperiment::swapAltExp(
-        x = sce,
-        name = assayn,
-        saved = orig.exp.name
-      )
-      SummarizedExperiment::rowData(x = sce) <- S4Vectors::DataFrame(x[[assayn]][[]])
-      sce <- SingleCellExperiment::swapAltExp(
-        x = sce,
-        name = orig.exp.name,
-        saved = assayn
-      )
-    }
+  metadata$celltypes <- Idents(object = x)
+  for (assay in names(assay.list) {
+    cellrouterobject@assays$[[assay]]@sampTab <- metadata
   }
+  cellrouterobject@var.genes <- VariableFeatures(object = x)
+       
+       
+       
+       
+  cellrouterobject@assays$[[assay]]@sampTab
+  SummarizedExperiment::colData(x = sce) <- S4Vectors::DataFrame(metadata)
   for (dr in FilterObjects(object = x, classes.keep = "DimReduc")) {
     assay.used <- DefaultAssay(object = x[[dr]])
     swap.exp <- assay.used %in% SingleCellExperiment::altExpNames(x = sce) & assay.used != orig.exp.name
@@ -78,5 +67,6 @@ as.SingleCellExperiment.Seurat <- function(x, assay = NULL, ...) {
       )
     }
   }
+    object <- new(Class = "CellRouter", assays = assay.list)
   return(sce)
 }
