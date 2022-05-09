@@ -1,14 +1,3 @@
-CreateCellRouter <- function(rawdata, assay.type='RNA', min.genes, min.cells,
-                             is.expr = 0){
-  assay.data <- CreateAssay(rawdata, assay.type, min.genes, min.cells, is.expr);
-  assay.list <- list(assay.data)
-  names(assay.list) <- assay.type
-  object <- new(Class = "CellRouter", assays = assay.list)
-  # object@sampTab <- assay.data@sampTab
-  return(object)
-}
-
-
 as.CellRouter.Seurat <- function(x, assay = NULL, ...) {
   if (!PackageCheck('Seurat', error = FALSE)) {
     stop("Please install Seurat  before converting to a CellRouter object")
@@ -42,31 +31,7 @@ as.CellRouter.Seurat <- function(x, assay = NULL, ...) {
     cellrouterobject@assays$[[assay]]@sampTab <- metadata
   }
   cellrouterobject@var.genes <- VariableFeatures(object = x)
-       
-       
-       
-       
-  cellrouterobject@assays$[[assay]]@sampTab
-  SummarizedExperiment::colData(x = sce) <- S4Vectors::DataFrame(metadata)
-  for (dr in FilterObjects(object = x, classes.keep = "DimReduc")) {
-    assay.used <- DefaultAssay(object = x[[dr]])
-    swap.exp <- assay.used %in% SingleCellExperiment::altExpNames(x = sce) & assay.used != orig.exp.name
-    if (swap.exp) {
-      sce <- SingleCellExperiment::swapAltExp(
-        x = sce,
-        name = assay.used,
-        saved = orig.exp.name
-      )
-    }
-    SingleCellExperiment::reducedDim(x = sce, type = toupper(x = dr)) <- Embeddings(object = x[[dr]])
-    if (swap.exp) {
-      sce <- SingleCellExperiment::swapAltExp(
-        x = sce,
-        name = orig.exp.name,
-        saved = assay.used
-      )
-    }
-  }
-    object <- new(Class = "CellRouter", assays = assay.list)
-  return(sce)
+  cellrouterobject@pca <- list(gene.loadings = Loadings(object = x, reduction = "pca"), cell.embeddings = Embeddings(object = x, reduction = "pca"), sdev = x@reductions$pca@stdev)
+  cellrouterobject@umap <- list(cell.embeddings=Embeddings(object = immune.integrated, reduction = "umap"))
+  return(cellrouterobject)
 }
