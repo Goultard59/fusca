@@ -15,24 +15,23 @@
 #' and receptor.
 #'
 #' @export
-pathfinding <- function(cellrouter, assay.type='ST', grn, gene.pairs_01, gene.pairs_02, markers, maindir=NULL, verbose=TRUE){
+pathfinding <- function(cellrouter, assay.type='ST', grn, gene.pairs, markers, maindir=NULL, verbose=TRUE){
   tfs <- intersect(grn.data$tfs, rownames(slot(object, 'assays')[[assay.type]]@ndata))
-  x <- rbind(gene.pairs_01$markers, gene.pairs_02$markers)
 
   sts2 <- list()
-  for(i in unique(x$celltypes)){
-    tmp <- x[which(x$celltypes == i),]
-    rs <- unique(tmp$receptor)
+  for(i in unique(gene.pairs$celltypes)){
+    gene.pairs.celltypes <- gene.pairs[which(gene.pairs$celltypes == i),]
+    rs <- unique(gene.pairs.celltypes$receptor)
     sts2[["receptor"]][[i]]$sources <- rs  # receptors
     sts2[["receptor"]][[i]]$targets <- tfs # TFs (all)
   }
   if (maindir == NULL) {
     wd_package <- getwd()
-    setwd(wd_package)
     maindir <- paste0(wd_package, '')
   }
+  setwd(maindir)
   
-  interactionList <- expand.grid(x$celltypes)
+  interactionList <- expand.grid(gene.pairs$celltypes)
 
   cellcomm <- CreateCellComm()
   for(interaction in interactionList){
@@ -53,10 +52,10 @@ pathfinding <- function(cellrouter, assay.type='ST', grn, gene.pairs_01, gene.pa
   }
 
   summary <- summarize.flow(files, prefix = "")
+  grn_table <- grn$GRN_table
   colnames(grn_table) <- c("target", "reg", "zscore", "corr")
-  sampTab <- slot(object, 'assays')[[assay.type]]@sampTab
   apathways <- activeSignaling(data = slot(object, 'assays')[[assay.type]]@ndata, sampTab = slot(object, 'assays')[[assay.type]]@sampTab,
-                             grn = grn$GRN_table, markers = markers, summary = summary, fc = 0.2)
+                             grn = grn_table, markers = markers, summary = summary, fc = 0.2)
   npaths <- rankpaths(summary, apathways$pathways)
   return(npaths)
 }
